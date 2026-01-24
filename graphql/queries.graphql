@@ -1,0 +1,468 @@
+# Honeydew API GraphQL Queries
+# These queries are used by genqlient to generate type-safe Go code
+
+# =============================================================================
+# Authentication
+# =============================================================================
+
+mutation Login($username: String!, $password: String!) {
+    login(username: $username, password: $password) {
+        accessToken
+        refreshToken
+        user {
+            id
+            username
+            role
+            status
+        }
+    }
+}
+
+mutation RefreshToken($refreshToken: String!) {
+    refreshToken(refreshToken: $refreshToken) {
+        accessToken
+        refreshToken
+        user {
+            id
+            username
+            role
+            status
+        }
+    }
+}
+
+# =============================================================================
+# User Queries
+# =============================================================================
+
+query Me {
+    me {
+        id
+        username
+        role
+        status
+        createdAt
+        updatedAt
+    }
+}
+
+query ListOrganizations {
+    listOrganizations
+}
+
+query ListOrganizationsWithProviders {
+    listOrganizationsWithProviders {
+        name
+        providers {
+            oid
+            name
+        }
+    }
+}
+
+# =============================================================================
+# GitHub Queries
+# =============================================================================
+
+query GitHubRepositories($organization: String!) {
+    githubRepositories(organization: $organization) {
+        id
+        name
+        fullName
+        description
+        htmlUrl
+        isPrivate
+        defaultBranch
+        pushedAt
+        createdAt
+        updatedAt
+    }
+}
+
+query GitHubRepositoriesByPushDate($organization: String!, $startDate: String!, $endDate: String) {
+    githubRepositoriesByPushDate(organization: $organization, startDate: $startDate, endDate: $endDate) {
+        id
+        name
+        fullName
+        description
+        htmlUrl
+        isPrivate
+        defaultBranch
+        pushedAt
+    }
+}
+
+query GitHubCommits(
+    $organization: String!
+    $repository: String!
+    $startDate: String
+    $endDate: String
+    $author: String
+    $format: ExportFormat
+    $includeDiff: Boolean
+) {
+    githubCommits(
+        organization: $organization
+        repository: $repository
+        startDate: $startDate
+        endDate: $endDate
+        author: $author
+        format: $format
+        includeDiff: $includeDiff
+    ) {
+        commits {
+            sha
+            message
+            author
+            authorEmail
+            date
+            additions
+            deletions
+            files {
+                filename
+                status
+                additions
+                deletions
+                patch
+            }
+        }
+        json
+    }
+}
+
+query GitHubPullRequests(
+    $organization: String!
+    $repo: String!
+    $startDate: String
+    $endDate: String
+) {
+    githubPullRequests(
+        organization: $organization
+        repo: $repo
+        startDate: $startDate
+        endDate: $endDate
+    ) {
+        id
+        number
+        title
+        body
+        state
+        htmlUrl
+        draft
+        user {
+            id
+            login
+        }
+        createdAt
+        updatedAt
+        closedAt
+        mergedAt
+    }
+}
+
+query GitHubPullRequestsDetailed(
+    $organization: String!
+    $repository: String!
+    $startDate: String
+    $endDate: String
+    $author: String
+    $format: ExportFormat
+) {
+    githubPullRequestsDetailed(
+        organization: $organization
+        repository: $repository
+        startDate: $startDate
+        endDate: $endDate
+        author: $author
+        format: $format
+    ) {
+        pullRequests {
+            id
+            number
+            title
+            body
+            state
+            author
+            createdAt
+            updatedAt
+            mergedAt
+            closedAt
+            additions
+            deletions
+            changedFiles
+            commits {
+                sha
+                message
+                author
+                date
+            }
+        }
+        json
+    }
+}
+
+mutation GitHubCloneRepository($organization: String!, $repository: String!) {
+    githubCloneRepository(organization: $organization, repository: $repository) {
+        success
+        path
+        repository
+        organization
+        error
+    }
+}
+
+# =============================================================================
+# GitLab Queries
+# =============================================================================
+
+query GitLabProjects($organization: String!) {
+    gitlabProjects(organization: $organization) {
+        id
+        name
+        path
+        pathWithNamespace
+        description
+        webUrl
+        defaultBranch
+        visibility
+        createdAt
+        lastActivityAt
+    }
+}
+
+query GitLabCommits(
+    $organization: String!
+    $project: String!
+    $startDate: String
+    $endDate: String
+    $author: String
+    $format: ExportFormat
+    $includeDiff: Boolean
+) {
+    gitlabCommits(
+        organization: $organization
+        project: $project
+        startDate: $startDate
+        endDate: $endDate
+        author: $author
+        format: $format
+        includeDiff: $includeDiff
+    ) {
+        commits {
+            sha
+            message
+            author
+            authorEmail
+            date
+            additions
+            deletions
+        }
+        json
+    }
+}
+
+query GitLabMergeRequests(
+    $organization: String!
+    $repo: String!
+    $startDate: String
+    $endDate: String
+) {
+    gitlabMergeRequests(
+        organization: $organization
+        repo: $repo
+        startDate: $startDate
+        endDate: $endDate
+    ) {
+        id
+        iid
+        title
+        description
+        state
+        webUrl
+        sourceBranch
+        targetBranch
+        author {
+            id
+            username
+            name
+        }
+        createdAt
+        updatedAt
+        mergedAt
+        closedAt
+    }
+}
+
+# =============================================================================
+# Jira Queries
+# =============================================================================
+
+query JiraProjects($organization: String!) {
+    jiraProjects(organization: $organization) {
+        id
+        key
+        name
+        description
+        projectTypeKey
+    }
+}
+
+query JiraIssues(
+    $organization: String!
+    $project: String
+    $startDate: String
+    $endDate: String
+) {
+    jiraIssues(
+        organization: $organization
+        project: $project
+        startDate: $startDate
+        endDate: $endDate
+    ) {
+        id
+        key
+        summary
+        description
+        status {
+            id
+            name
+            statusCategory
+        }
+        priority {
+            id
+            name
+        }
+        issueType {
+            id
+            name
+        }
+        assignee {
+            accountId
+            displayName
+        }
+        createdAt
+        updatedAt
+        resolvedAt
+    }
+}
+
+# =============================================================================
+# Linear Queries
+# =============================================================================
+
+query LinearTeams($organization: String!) {
+    linearTeams(organization: $organization) {
+        id
+        name
+        key
+        description
+        createdAt
+        updatedAt
+    }
+}
+
+query LinearProjects($organization: String!, $team: String) {
+    linearProjects(organization: $organization, team: $team) {
+        id
+        name
+        description
+        state
+        progress
+        targetDate
+        startDate
+        createdAt
+        updatedAt
+    }
+}
+
+query LinearIssues(
+    $organization: String!
+    $startDate: String
+    $endDate: String
+) {
+    linearIssues(
+        organization: $organization
+        startDate: $startDate
+        endDate: $endDate
+    ) {
+        id
+        identifier
+        title
+        description
+        priority
+        priorityLabel
+        state {
+            id
+            name
+            type
+        }
+        assignee {
+            id
+            name
+            email
+        }
+        team {
+            id
+            name
+            key
+        }
+        createdAt
+        updatedAt
+        completedAt
+    }
+}
+
+# =============================================================================
+# Bitbucket Queries
+# =============================================================================
+
+query BitbucketWorkspaces {
+    bitbucketWorkspaces {
+        slug
+        name
+    }
+}
+
+query BitbucketRepositories($workspace: String!) {
+    bitbucketRepositories(workspace: $workspace) {
+        uuid
+        name
+        fullName
+        slug
+        description
+        isPrivate
+        mainBranch
+        createdOn
+        updatedOn
+        htmlUrl
+    }
+}
+
+query BitbucketCommits(
+    $workspace: String!
+    $repository: String
+    $startDate: String
+    $endDate: String
+    $format: ExportFormat
+    $includeDiff: Boolean
+) {
+    bitbucketCommits(
+        workspace: $workspace
+        repository: $repository
+        startDate: $startDate
+        endDate: $endDate
+        format: $format
+        includeDiff: $includeDiff
+    ) {
+        commits {
+            sha
+            message
+            author
+            authorEmail
+            date
+            additions
+            deletions
+        }
+        json
+    }
+}

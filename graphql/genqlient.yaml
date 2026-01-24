@@ -1,0 +1,25 @@
+# genqlient configuration
+# See: https://github.com/Khan/genqlient/blob/main/docs/genqlient.yaml
+
+schema:
+  - schema.graphql
+
+operations:
+  - queries.graphql
+
+generated: ../internal/api/honeydew/generated/generated.go
+
+package: generated
+
+# Use pointers for optional fields
+optional: pointer
+
+# Context-aware client
+context_type: context.Context
+
+# Bindings for custom scalar types
+bindings:
+  ID:
+    type: string
+  DateTime:
+    type: string

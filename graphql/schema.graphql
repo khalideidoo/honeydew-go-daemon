@@ -1,0 +1,787 @@
+type Query {
+    me: User
+    listUsers: [User!]!
+    getUser(id: ID!): User
+    listActiveUsers: [User!]!
+    listOrganizations: [String!]!
+    listOrganizationsWithProviders: [Organization!]!
+
+    # Linear API queries
+    linearTeams(organization: String!): [LinearTeam!]!
+    linearProjects(organization: String!, team: String): [LinearProject!]!
+    linearIssues(organization: String!, startDate: String, endDate: String): [LinearIssue!]!
+
+    # Jira API queries
+    jiraProjects(organization: String!): [JiraProject!]!
+    jiraIssues(organization: String!, project: String, startDate: String, endDate: String): [JiraIssue!]!
+
+    # GitHub API queries
+    githubRepositories(organization: String!): [GitHubRepository!]!
+    githubRepositoriesByPushDate(organization: String!, startDate: String!, endDate: String): [GitHubRepository!]!
+    githubIssues(organization: String!, startDate: String, endDate: String): [GitHubIssue!]!
+    githubPullRequests(organization: String!, repo: String!, startDate: String, endDate: String): [GitHubPullRequest!]!
+    githubCommits(organization: String!, repository: String!, startDate: String, endDate: String, author: String, format: ExportFormat, includeDiff: Boolean = false): CommitResult!
+    githubPullRequestsDetailed(organization: String!, repository: String!, startDate: String, endDate: String, author: String, format: ExportFormat): PullRequestResult!
+
+    # GitLab API queries
+    gitlabProjects(organization: String!): [GitLabProject!]!
+    gitlabRepositories(organization: String!): [GitLabProject!]!
+    gitlabRepositoriesByPushDate(organization: String!, startDate: String!, endDate: String): [GitLabProject!]!
+    gitlabIssues(organization: String!, project: String, startDate: String, endDate: String): [GitLabIssue!]!
+    gitlabMergeRequests(organization: String!, repo: String!, startDate: String, endDate: String): [GitLabMergeRequest!]!
+    gitlabCommits(organization: String!, project: String!, startDate: String, endDate: String, author: String, format: ExportFormat, includeDiff: Boolean = false): CommitResult!
+    gitlabMergeRequestsDetailed(organization: String!, project: String!, startDate: String, endDate: String, author: String, format: ExportFormat): MergeRequestResult!
+
+    # Azure DevOps API queries
+    azureDevOpsProjects(organization: String!): [AzureDevOpsProject!]!
+    azureDevOpsProject(organization: String!, project: String!): AzureDevOpsProject
+    azureDevOpsTeams(organization: String!, project: String!): [AzureDevOpsTeam!]!
+    azureDevOpsWorkItem(organization: String!, id: Int!, project: String): AzureDevOpsWorkItem
+    azureDevOpsWorkItems(organization: String!, ids: [Int!]!, project: String): [AzureDevOpsWorkItem!]!
+    azureDevOpsWorkItemsWiql(organization: String!, project: String!, wiql: String, startDate: String, endDate: String, workItemTypes: [String!]): [AzureDevOpsWorkItem!]!
+    azureDevOpsRepositories(organization: String!, project: String!): [AzureDevOpsRepository!]!
+    azureDevOpsRepository(organization: String!, project: String!, repo: String!): AzureDevOpsRepository
+    azureDevOpsPullRequests(organization: String!, project: String!, repo: String!, startDate: String, endDate: String): [AzureDevOpsPullRequest!]!
+    azureDevOpsPullRequest(organization: String!, project: String!, repo: String!, prId: Int!): AzureDevOpsPullRequest
+    azureDevOpsPullRequestCommits(organization: String!, project: String!, repo: String!, prId: Int!): [AzureDevOpsCommit!]!
+    azureDevOpsCommits(organization: String!, project: String!, repo: String!, startDate: String, endDate: String, author: String): [AzureDevOpsCommit!]!
+    azureDevOpsCommit(organization: String!, project: String!, repo: String!, commitId: String!): AzureDevOpsCommit
+
+    # Asana API queries
+    asanaWorkspaces(organization: String!): [AsanaWorkspace!]!
+    asanaProjects(organization: String!, workspace: String): [AsanaProject!]!
+    asanaTasks(organization: String!, workspace: String, startDate: String, endDate: String): [AsanaTask!]!
+
+    # Monday API queries
+    mondayWorkspaces(organization: String!): [MondayWorkspace!]!
+    mondayBoards(organization: String!, workspaceId: String): [MondayBoard!]!
+    mondayItems(organization: String!, boardId: String, startDate: String, endDate: String): [MondayItem!]!
+
+    # Bitbucket API queries
+    bitbucketWorkspaces: [BitbucketWorkspace!]!
+    bitbucketRepositories(workspace: String!): [BitbucketRepository!]!
+    bitbucketRepositoriesByPushDate(workspace: String!, startDate: String!, endDate: String): [BitbucketRepository!]!
+    bitbucketPullRequests(workspace: String!, repo: String!, startDate: String, endDate: String): [BitbucketPullRequest!]!
+    bitbucketCommits(workspace: String!, repository: String, startDate: String, endDate: String, format: ExportFormat, includeDiff: Boolean = false): CommitResult!
+    bitbucketCommitsDetailed(workspace: String!, repository: String!, startDate: String, endDate: String, author: String, format: ExportFormat): CommitResult!
+    bitbucketPullRequestsDetailed(workspace: String!, repository: String!, startDate: String, endDate: String, author: String, format: ExportFormat): BitbucketPullRequestResult!
+}
+
+type Mutation {
+    login(username: String!, password: String!): AuthPayload!
+    refreshToken(refreshToken: String!): AuthPayload!
+    createUser(input: CreateUserInput!): User!
+    updateUser(id: ID!, input: UpdateUserInput!): User!
+    deleteUser(id: ID!): DeletePayload!
+    deactivateUser(username: String!): User!
+
+    # Organization mutations
+    deleteOrganizationProvider(oid: ID!): DeletePayload!
+
+    # GitHub mutations
+    githubCloneRepository(organization: String!, repository: String!): CloneRepositoryPayload!
+
+    # GitLab mutations
+    gitlabCloneRepository(organization: String!, repository: String!): CloneRepositoryPayload!
+
+    # Bitbucket mutations
+    bitbucketCloneRepository(workspace: String!, repository: String!): CloneRepositoryPayload!
+}
+
+type User {
+    id: ID!
+    username: String!
+    role: String!
+    status: Int!
+    createdAt: String
+    updatedAt: String
+}
+
+type AuthPayload {
+    accessToken: String!
+    refreshToken: String!
+    user: User!
+}
+
+type DeletePayload {
+    success: Boolean!
+    message: String
+    deletedCount: Int
+}
+
+type CloneRepositoryPayload {
+    success: Boolean!
+    path: String
+    repository: String
+    organization: String
+    error: String
+}
+
+input CreateUserInput {
+    username: String!
+    password: String!
+    role: String
+    status: Int
+}
+
+input UpdateUserInput {
+    username: String
+    password: String
+    role: String
+    status: Int
+}
+
+type Organization {
+    name: String!
+    providers: [OrganizationProvider!]!
+}
+
+type OrganizationProvider {
+    oid: ID!
+    name: String!
+}
+
+# Linear API types
+type LinearTeam {
+    id: ID!
+    name: String!
+    key: String!
+    description: String
+    color: String
+    icon: String
+    private: Boolean
+    createdAt: String
+    updatedAt: String
+}
+
+type LinearUser {
+    id: ID!
+    name: String
+    email: String
+}
+
+type LinearState {
+    id: ID!
+    name: String!
+    type: String
+}
+
+type LinearLabel {
+    id: ID!
+    name: String!
+    color: String
+}
+
+type LinearProject {
+    id: ID!
+    name: String!
+    description: String
+    state: String
+    progress: Float
+    targetDate: String
+    startDate: String
+    createdAt: String
+    updatedAt: String
+    teams: [LinearTeam!]
+    lead: LinearUser
+}
+
+type LinearIssue {
+    id: ID!
+    identifier: String!
+    title: String!
+    description: String
+    priority: Int
+    priorityLabel: String
+    state: LinearState
+    assignee: LinearUser
+    team: LinearTeam
+    project: LinearProject
+    labels: [LinearLabel!]
+    estimate: Float
+    dueDate: String
+    createdAt: String
+    updatedAt: String
+    completedAt: String
+}
+
+# Jira API types
+type JiraUser {
+    accountId: String!
+    displayName: String
+    emailAddress: String
+}
+
+type JiraStatus {
+    id: ID!
+    name: String!
+    statusCategory: String
+}
+
+type JiraPriority {
+    id: ID!
+    name: String!
+}
+
+type JiraIssueType {
+    id: ID!
+    name: String!
+    subtask: Boolean
+}
+
+type JiraProjectRef {
+    id: ID!
+    key: String!
+    name: String!
+}
+
+type JiraComponent {
+    id: ID!
+    name: String!
+}
+
+type JiraProject {
+    id: ID!
+    key: String!
+    name: String!
+    description: String
+    projectTypeKey: String
+    lead: JiraUser
+    avatarUrls: JiraAvatarUrls
+}
+
+type JiraAvatarUrls {
+    x48: String
+    x24: String
+    x16: String
+    x32: String
+}
+
+type JiraIssue {
+    id: ID!
+    key: String!
+    summary: String!
+    description: String
+    status: JiraStatus
+    priority: JiraPriority
+    issueType: JiraIssueType
+    assignee: JiraUser
+    reporter: JiraUser
+    project: JiraProjectRef
+    labels: [String!]
+    components: [JiraComponent!]
+    createdAt: String
+    updatedAt: String
+    resolvedAt: String
+}
+
+# GitHub API types
+type GitHubRepository {
+    id: String!
+    name: String!
+    fullName: String!
+    description: String
+    url: String
+    htmlUrl: String
+    pushedAt: String
+    createdAt: String
+    updatedAt: String
+    isPrivate: Boolean!
+    defaultBranch: String
+}
+
+type GitHubUser {
+    id: ID!
+    login: String
+    avatarUrl: String
+}
+
+type GitHubLabel {
+    id: ID!
+    name: String!
+    color: String
+}
+
+type GitHubMilestone {
+    id: ID!
+    title: String
+    number: Int
+}
+
+type GitHubIssue {
+    id: ID!
+    number: Int!
+    title: String!
+    body: String
+    state: String
+    htmlUrl: String
+    user: GitHubUser
+    assignee: GitHubUser
+    assignees: [GitHubUser!]
+    labels: [GitHubLabel!]
+    milestone: GitHubMilestone
+    repository: String
+    createdAt: String
+    updatedAt: String
+    closedAt: String
+}
+
+type GitHubPullRequest {
+    id: ID!
+    number: Int!
+    title: String!
+    body: String
+    state: String
+    htmlUrl: String
+    draft: Boolean
+    user: GitHubUser
+    assignee: GitHubUser
+    assignees: [GitHubUser!]
+    labels: [GitHubLabel!]
+    milestone: GitHubMilestone
+    repository: String
+    createdAt: String
+    updatedAt: String
+    closedAt: String
+    mergedAt: String
+}
+
+# GitLab API types
+type GitLabUser {
+    id: ID!
+    username: String
+    name: String
+}
+
+type GitLabNamespace {
+    id: ID!
+    name: String
+    path: String
+}
+
+type GitLabMilestone {
+    id: ID!
+    title: String
+}
+
+type GitLabProject {
+    id: ID!
+    name: String!
+    path: String
+    pathWithNamespace: String
+    description: String
+    webUrl: String
+    defaultBranch: String
+    visibility: String
+    namespace: GitLabNamespace
+    createdAt: String
+    lastActivityAt: String
+}
+
+type GitLabIssue {
+    id: ID!
+    iid: Int!
+    title: String!
+    description: String
+    state: String
+    webUrl: String
+    author: GitLabUser
+    assignee: GitLabUser
+    assignees: [GitLabUser!]
+    labels: [String!]
+    milestone: GitLabMilestone
+    projectId: String
+    dueDate: String
+    createdAt: String
+    updatedAt: String
+    closedAt: String
+}
+
+type GitLabMergeRequest {
+    id: ID!
+    iid: Int!
+    title: String!
+    description: String
+    state: String
+    webUrl: String
+    sourceBranch: String
+    targetBranch: String
+    author: GitLabUser
+    assignee: GitLabUser
+    assignees: [GitLabUser!]
+    reviewers: [GitLabUser!]
+    labels: [String!]
+    milestone: GitLabMilestone
+    projectId: String
+    draft: Boolean
+    mergeStatus: String
+    createdAt: String
+    updatedAt: String
+    mergedAt: String
+    closedAt: String
+}
+
+# Asana API types
+type AsanaUser {
+    gid: ID!
+    name: String
+}
+
+type AsanaWorkspace {
+    gid: ID!
+    name: String!
+    resourceType: String
+}
+
+type AsanaWorkspaceRef {
+    gid: ID!
+    name: String
+}
+
+type AsanaProjectRef {
+    gid: ID!
+    name: String
+}
+
+type AsanaTag {
+    gid: ID!
+    name: String
+}
+
+type AsanaProject {
+    gid: ID!
+    name: String!
+    archived: Boolean
+    color: String
+    notes: String
+    public: Boolean
+    workspace: AsanaWorkspaceRef
+    owner: AsanaUser
+    createdAt: String
+    modifiedAt: String
+}
+
+type AsanaTask {
+    gid: ID!
+    name: String!
+    completed: Boolean
+    completedAt: String
+    notes: String
+    dueOn: String
+    dueAt: String
+    assignee: AsanaUser
+    projects: [AsanaProjectRef!]
+    tags: [AsanaTag!]
+    createdAt: String
+    modifiedAt: String
+}
+
+# Monday API types
+type MondayWorkspace {
+    id: ID!
+    name: String!
+    kind: String
+    description: String
+    createdAt: String
+}
+
+type MondayColumn {
+    id: ID!
+    title: String
+    type: String
+}
+
+type MondayBoard {
+    id: ID!
+    name: String!
+    description: String
+    state: String
+    boardKind: String
+    workspaceId: String
+    updatedAt: String
+    columns: [MondayColumn!]
+}
+
+type MondayGroup {
+    id: ID!
+    title: String
+}
+
+type MondayColumnValue {
+    id: ID!
+    text: String
+    type: String
+    value: String
+}
+
+type MondayUser {
+    id: ID!
+    name: String
+    email: String
+}
+
+type MondayItem {
+    id: ID!
+    name: String!
+    state: String
+    createdAt: String
+    updatedAt: String
+    boardId: String
+    boardName: String
+    group: MondayGroup
+    columnValues: [MondayColumnValue!]
+    creator: MondayUser
+}
+
+# Git Commit types (shared between GitHub and GitLab)
+enum ExportFormat {
+    JSON
+}
+
+type CommitFile {
+    filename: String!
+    status: String!
+    additions: Int!
+    deletions: Int!
+    patch: String
+}
+
+type GitCommit {
+    sha: String!
+    message: String!
+    author: String!
+    authorEmail: String!
+    date: String!
+    additions: Int
+    deletions: Int
+    files: [CommitFile!]
+}
+
+type CommitResult {
+    commits: [GitCommit!]!
+    json: String
+}
+
+# GitHub Pull Request detailed type (with commits)
+type GitHubPullRequestDetailed {
+    id: ID!
+    number: Int!
+    title: String!
+    body: String
+    state: String!
+    author: String!
+    createdAt: String!
+    updatedAt: String
+    mergedAt: String
+    closedAt: String
+    additions: Int
+    deletions: Int
+    changedFiles: Int
+    commits: [GitCommit!]!
+}
+
+type PullRequestResult {
+    pullRequests: [GitHubPullRequestDetailed!]!
+    json: String
+}
+
+# GitLab Merge Request detailed type (with commits)
+type GitLabMergeRequestDetailed {
+    id: ID!
+    iid: Int!
+    title: String!
+    description: String
+    state: String!
+    author: String!
+    createdAt: String!
+    updatedAt: String
+    mergedAt: String
+    closedAt: String
+    commits: [GitCommit!]!
+}
+
+type MergeRequestResult {
+    mergeRequests: [GitLabMergeRequestDetailed!]!
+    json: String
+}
+
+# Bitbucket API types
+type BitbucketWorkspace {
+    slug: String!
+    name: String!
+}
+
+type BitbucketRepository {
+    uuid: String
+    name: String!
+    fullName: String
+    slug: String!
+    description: String
+    isPrivate: Boolean!
+    language: String
+    mainBranch: String
+    createdOn: String
+    updatedOn: String
+    htmlUrl: String
+    cloneUrl: String
+}
+
+type BitbucketUser {
+    uuid: String
+    displayName: String
+    nickname: String
+}
+
+type BitbucketAuthor {
+    raw: String
+    user: BitbucketUser
+}
+
+type BitbucketParentCommit {
+    hash: String!
+}
+
+type BitbucketCommit {
+    hash: String!
+    message: String
+    author: BitbucketAuthor
+    date: String
+    repository: String
+    htmlUrl: String
+    parents: [BitbucketParentCommit!]
+}
+
+type BitbucketPullRequest {
+    id: ID!
+    title: String!
+    description: String
+    state: String!
+    author: BitbucketUser
+    sourceBranch: String
+    destinationBranch: String
+    repository: String
+    createdOn: String
+    updatedOn: String
+    closedOn: String
+    mergedOn: String
+    htmlUrl: String
+    commentCount: Int
+    taskCount: Int
+}
+
+# Bitbucket Pull Request detailed type (with commits and diffs)
+type BitbucketPullRequestDetailed {
+    id: ID!
+    number: Int!
+    title: String!
+    body: String
+    state: String!
+    author: String!
+    createdAt: String!
+    updatedAt: String
+    mergedAt: String
+    closedAt: String
+    additions: Int
+    deletions: Int
+    changedFiles: Int
+    commits: [GitCommit!]!
+}
+
+type BitbucketPullRequestResult {
+    pullRequests: [BitbucketPullRequestDetailed!]!
+    json: String
+}
+
+# Azure DevOps API types
+type AzureDevOpsProject {
+    id: ID!
+    name: String!
+    description: String
+    url: String
+    state: String
+    visibility: String
+}
+
+type AzureDevOpsTeam {
+    id: ID!
+    name: String!
+    description: String
+    url: String
+}
+
+type AzureDevOpsWorkItemFields {
+    workItemType: String
+    title: String
+    state: String
+    assignedTo: String
+    createdDate: String
+    changedDate: String
+    createdBy: String
+    changedBy: String
+    description: String
+    tags: String
+}
+
+type AzureDevOpsWorkItem {
+    id: Int!
+    rev: Int!
+    url: String
+    fields: AzureDevOpsWorkItemFields!
+}
+
+type AzureDevOpsProjectRef {
+    id: ID
+    name: String
+}
+
+type AzureDevOpsRepository {
+    id: ID!
+    name: String!
+    url: String
+    defaultBranch: String
+    size: Int
+    project: AzureDevOpsProjectRef
+}
+
+type AzureDevOpsRepositoryRef {
+    id: ID
+    name: String
+}
+
+type AzureDevOpsPullRequest {
+    pullRequestId: Int!
+    title: String
+    description: String
+    status: String
+    createdBy: String
+    creationDate: String
+    closedDate: String
+    sourceRefName: String
+    targetRefName: String
+    repository: AzureDevOpsRepositoryRef
+}
+
+type AzureDevOpsAuthor {
+    name: String
+    email: String
+    date: String
+}
+
+type AzureDevOpsCommit {
+    commitId: String!
+    comment: String
+    author: AzureDevOpsAuthor
+    committer: AzureDevOpsAuthor
+    changeCounts: String
+    url: String
+}
+
+type AzureDevOpsCommitChange {
+    path: String
+    changeType: String
+}
+
+type AzureDevOpsCommitChanges {
+    changeCounts: String
+    changes: [AzureDevOpsCommitChange!]!
+}

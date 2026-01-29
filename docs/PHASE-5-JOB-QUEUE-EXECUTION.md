@@ -16,11 +16,26 @@ This phase implements the job queue system with priority-based execution, worker
   - [ ] Test NewJob sets created_at timestamp
   - [ ] Test Job state transitions are valid
 - [ ] Create `internal/queue/job.go`:
+  - [ ] Define `Provider` type for API provider classification:
+    ```go
+    type Provider string
+    const (
+        ProviderGitHub      Provider = "github"
+        ProviderGitLab      Provider = "gitlab"
+        ProviderBitbucket   Provider = "bitbucket"
+        ProviderJira        Provider = "jira"
+        ProviderLinear      Provider = "linear"
+        ProviderAsana       Provider = "asana"
+        ProviderMonday      Provider = "monday"
+        ProviderAzureDevOps Provider = "azuredevops"
+    )
+    ```
   - [ ] Define `Job` struct (mirrors storage but with behavior):
     ```go
     type Job struct {
         ID          string
         Command     string
+        Provider    Provider   // API provider for concurrency limiting
         Payload     []byte
         Priority    int
         Status      JobStatus
@@ -34,6 +49,7 @@ This phase implements the job queue system with priority-based execution, worker
     }
     ```
   - [ ] Define `JobStatus` type with constants: `Pending`, `Running`, `Completed`, `Failed`, `Cancelled`
+  - [ ] Implement `ProviderFromCommand(command string) Provider` - extracts provider from command prefix
   - [ ] Implement `NewJob(command string, payload []byte, priority int) *Job`
   - [ ] Implement `CanRetry() bool`
   - [ ] Implement `MarkRunning()`, `MarkCompleted(result)`, `MarkFailed(error)`, `MarkCancelled()`
@@ -103,16 +119,25 @@ This phase implements the job queue system with priority-based execution, worker
     type Worker struct {
         id       int
         manager  *Manager
+        limiter  *ProviderLimiter
         executor Executor
         logger   logging.Logger
         done     chan struct{}
     }
     ```
-  - [ ] Implement `NewWorker(id int, manager, executor, logger) *Worker`
+  - [ ] Implement `NewWorker(id int, manager, limiter, executor, logger) *Worker`
   - [ ] Implement `Start(ctx context.Context)`:
-    - [ ] Loop: get next job, execute, update status
+    - [ ] Loop: get next job, acquire provider lock, execute, release, update status
     - [ ] Use select with ctx.Done() for cancellation
     - [ ] Sleep briefly when queue empty (avoid busy loop)
+  - [ ] Implement `executeWithLimiter(job *Job)`:
+    ```go
+    func (w *Worker) executeWithLimiter(job *Job) {
+        w.limiter.Acquire(job.Provider)  // blocks if provider busy
+        defer w.limiter.Release(job.Provider)
+        w.execute(job)
+    }
+    ```
   - [ ] Implement `Stop()` - signals worker to stop
   - [ ] Log job start, completion, and errors with worker ID
 
@@ -129,20 +154,49 @@ This phase implements the job queue system with priority-based execution, worker
     type Pool struct {
         workers []*Worker
         manager *Manager
+        limiter *ProviderLimiter
         size    int
         wg      sync.WaitGroup
     }
     ```
-  - [ ] Implement `NewPool(size int, manager *Manager, executor Executor) *Pool`
+  - [ ] Implement `NewPool(size int, manager *Manager, limiter *ProviderLimiter, executor Executor) *Pool`
   - [ ] Implement `Start(ctx context.Context)`:
-    - [ ] Create and start `size` workers
+    - [ ] Create and start `size` workers (all share the same limiter)
     - [ ] Track workers in WaitGroup
   - [ ] Implement `Stop(ctx context.Context) error`:
     - [ ] Signal all workers to stop
     - [ ] Wait for workers with timeout from context
     - [ ] Return error if timeout exceeded
 
-### 6. Retry Logic with Exponential Backoff
+### 6. Provider Concurrency Limiter
+
+Jobs are executed in parallel across the worker pool, but with a constraint: **only 1 job per API provider runs at a time**. This prevents rate limiting issues and ensures predictable API usage.
+
+- [ ] **Write tests first:** `internal/queue/limiter_test.go`
+  - [ ] Test Acquire blocks when provider is busy
+  - [ ] Test Release unblocks waiting Acquire
+  - [ ] Test multiple providers can run concurrently
+  - [ ] Test same provider jobs run sequentially
+  - [ ] Test TryAcquire returns immediately with bool result
+- [ ] Create `internal/queue/limiter.go`:
+  - [ ] Define `ProviderLimiter` struct:
+    ```go
+    type ProviderLimiter struct {
+        semaphores map[Provider]chan struct{}
+        mu         sync.RWMutex
+    }
+    ```
+  - [ ] Implement `NewProviderLimiter(concurrency int) *ProviderLimiter`:
+    - [ ] Create semaphore channel for each provider
+    - [ ] Channel capacity = concurrency (default 1)
+  - [ ] Implement `Acquire(provider Provider)`:
+    - [ ] Blocks until semaphore slot available
+  - [ ] Implement `Release(provider Provider)`:
+    - [ ] Releases semaphore slot
+  - [ ] Implement `TryAcquire(provider Provider) bool`:
+    - [ ] Non-blocking attempt to acquire slot
+
+### 7. Retry Logic with Exponential Backoff
 
 - [ ] **Write tests first:** `internal/queue/retry_test.go`
   - [ ] Test retry is scheduled after failure
@@ -167,7 +221,7 @@ This phase implements the job queue system with priority-based execution, worker
     - [ ] If yes, increment retry count, schedule retry
     - [ ] If no, mark job as failed
 
-### 7. Job Recovery on Daemon Restart
+### 8. Job Recovery on Daemon Restart
 
 - [ ] **Write tests first:** `internal/queue/recovery_test.go`
   - [ ] Test pending jobs are loaded into queue on startup
@@ -183,7 +237,7 @@ This phase implements the job queue system with priority-based execution, worker
     - [ ] Log number of recovered jobs
   - [ ] Call `RecoverJobs()` during daemon startup (before starting workers)
 
-### 8. Cron Scheduler Integration
+### 9. Cron Scheduler Integration
 
 - [ ] **Write tests first:** `internal/scheduler/scheduler_test.go`
   - [ ] Test AddSchedule registers cron job
@@ -216,7 +270,7 @@ This phase implements the job queue system with priority-based execution, worker
   - [ ] Implement `ListSchedules() ([]*Schedule, error)`
   - [ ] Implement `LoadSchedules() error` - load from storage on startup
 
-### 9. Schedule Trigger Handler
+### 10. Schedule Trigger Handler
 
 - [ ] **Write tests first:**
   - [ ] Test trigger creates job with correct command and payload
@@ -237,7 +291,7 @@ This phase implements the job queue system with priority-based execution, worker
     }
     ```
 
-### 10. gRPC Handlers for Queue & Scheduler
+### 11. gRPC Handlers for Queue & Scheduler
 
 - [ ] **Write tests first:** `internal/grpc/queue_handlers_test.go`
   - [ ] Test SubmitJob creates job and returns ID
@@ -259,7 +313,7 @@ This phase implements the job queue system with priority-based execution, worker
   - [ ] `UnscheduleJob(ctx, req) (*UnscheduleJobResponse, error)`
   - [ ] `ListSchedules(ctx, req) (*ListSchedulesResponse, error)`
 
-### 11. Honeydew API Proxy Handlers
+### 12. Honeydew API Proxy Handlers
 
 - [ ] Implement gRPC handlers that create jobs for Honeydew API calls:
   - [ ] `GitHubListRepositories` → creates job with command `github.repositories`
@@ -286,11 +340,55 @@ In-memory queue with SQLite persistence for durability.
 
 **Features:**
 - Priority-based ordering
-- Concurrent worker pool
+- Concurrent worker pool with per-provider limiting
 - Retry with exponential backoff
 - Job state persistence (survives daemon restart)
 
 **Job states:** `pending` → `running` → `completed` | `failed` | `cancelled`
+
+### Provider Concurrency Model
+
+Jobs run in parallel across the worker pool, but with a key constraint: **only 1 job per API provider runs at a time**. This prevents rate limiting and ensures predictable API usage.
+
+```
+                    ┌─────────────────────────────────────┐
+                    │           Job Queue                 │
+                    │  (priority-ordered, all providers)  │
+                    └─────────────────┬───────────────────┘
+                                      │
+                    ┌─────────────────▼───────────────────┐
+                    │       Worker Pool (N workers)       │
+                    │   Workers share ProviderLimiter     │
+                    └─────────────────┬───────────────────┘
+                                      │
+    ┌──────────┬──────────┬──────────┼──────────┬──────────┬──────────┐
+    │          │          │          │          │          │          │
+┌───▼───┐  ┌───▼───┐  ┌───▼───┐  ┌───▼───┐  ┌───▼───┐  ┌───▼───┐  ┌───▼───┐
+│GitHub │  │GitLab │  │Bitbucket│ │ Jira  │  │Linear │  │ Asana │  │Monday │
+│ sem=1 │  │ sem=1 │  │ sem=1  │  │ sem=1 │  │ sem=1 │  │ sem=1 │  │ sem=1 │
+└───────┘  └───────┘  └────────┘  └───────┘  └───────┘  └───────┘  └───────┘
+```
+
+**Example with 4 workers:**
+- Worker 1: GitHub job (acquired GitHub semaphore)
+- Worker 2: Jira job (acquired Jira semaphore)
+- Worker 3: GitHub job (blocked - waiting for Worker 1 to release)
+- Worker 4: Linear job (acquired Linear semaphore)
+
+**Result:** 4 workers can process jobs concurrently, but at most 1 GitHub, 1 Jira, 1 Linear, etc. runs at any time.
+
+**Providers:**
+
+| Provider | Commands |
+|----------|----------|
+| `github` | `github.repositories`, `github.commits`, `github.pullRequests`, `github.clone` |
+| `gitlab` | `gitlab.projects`, `gitlab.commits`, `gitlab.mergeRequests`, `gitlab.clone` |
+| `bitbucket` | `bitbucket.repositories`, `bitbucket.commits`, `bitbucket.pullRequests`, `bitbucket.clone` |
+| `jira` | `jira.projects`, `jira.issues` |
+| `linear` | `linear.teams`, `linear.projects`, `linear.issues` |
+| `asana` | `asana.workspaces`, `asana.projects`, `asana.tasks` |
+| `monday` | `monday.workspaces`, `monday.boards`, `monday.items` |
+| `azuredevops` | `azuredevops.projects`, `azuredevops.workItems`, `azuredevops.repositories`, `azuredevops.commits` |
 
 ### Command Execution Model
 

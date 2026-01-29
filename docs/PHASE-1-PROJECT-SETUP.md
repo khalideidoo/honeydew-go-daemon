@@ -87,19 +87,21 @@ This phase establishes the foundational project structure, including Go module i
 
 ### 6. Structured Logging
 
+Uses Go's standard library `log/slog` (Go 1.21+) with `lumberjack` for log rotation.
+
 - [ ] **Write tests first:** `internal/logging/logger_test.go`
-  - [ ] Test JSON output format
+  - [ ] Test logfmt output format via slog.TextHandler
   - [ ] Test log levels (debug, info, warn, error)
   - [ ] Test structured fields are included
-  - [ ] Test log rotation triggers at size limit
+  - [ ] Test log rotation triggers at size limit (lumberjack integration)
 - [ ] Create `internal/logging/logger.go`:
-  - [ ] Define `Logger` interface with `Debug`, `Info`, `Warn`, `Error` methods
-  - [ ] Implement JSON formatter with timestamp, level, message, fields
-  - [ ] Integrate `lumberjack` for log rotation
+  - [ ] Configure `slog.TextHandler` with lumberjack writer for rotation
+  - [ ] Implement `Init(config LoggingConfig)` to set `slog.SetDefault()`
+  - [ ] Implement `parseLevel(level string) slog.Level` helper
   - [ ] Support configurable rotation settings (max size, max backups, max age, compress)
-  - [ ] Implement `WithFields(fields map[string]interface{}) Logger` for contextual logging
-- [ ] Create package-level logger instance with `Init(config LoggingConfig)` function
-- [ ] Add helper functions: `logging.Info()`, `logging.Error()`, etc.
+- [ ] Export convenience functions that wrap `slog.Default()`:
+  - [ ] `logging.Debug()`, `logging.Info()`, `logging.Warn()`, `logging.Error()`
+  - [ ] `logging.With(args ...any) *slog.Logger` for contextual logging
 
 ### 7. Makefile
 
@@ -192,17 +194,18 @@ storage:
   database_path: ~/.honeydew/daemon.db
 
 logging:
-  level: info                          # debug, info, warn, error
-  file: ~/.honeydew/daemon.log
-  max_size_mb: 10                      # max size before rotation
-  max_backups: 5                       # number of rotated files to keep
-  max_age_days: 30                     # days to retain old logs
-  compress: true                       # gzip rotated files
+  log_level: info                      # debug, info, warn, error
+  log_file: ~/.honeydew/daemon.log
+  log_max_size_mb: 10                  # max size before rotation
+  log_max_backups: 5                   # number of rotated files to keep
+  log_max_age_days: 30                 # days to retain old logs
+  log_compress: true                   # gzip rotated files
 
 queue:
-  workers: 4
-  max_retries: 3
-  retry_backoff: exponential
+  queue_workers: 4                     # total worker goroutines
+  queue_max_retries: 3
+  queue_retry_backoff: exponential
+  queue_provider_concurrency: 1        # max concurrent jobs per API provider
 
 api:
   timeout: 30s
@@ -215,21 +218,25 @@ api:
 
 **Log file:** `~/.honeydew/daemon.log`
 
-The daemon uses structured JSON logging with automatic rotation.
+The daemon uses Go's standard library `log/slog` with `slog.TextHandler` for logfmt-style structured logging, combined with `lumberjack` for automatic log rotation.
 
 #### Log Format
 
-```json
-{
-  "timestamp": "2024-01-15T10:30:45.123Z",
-  "level": "error",
-  "message": "job execution failed",
-  "job_id": "abc123",
-  "command": "github.commits",
-  "error": "AUTH_EXPIRED: refresh token expired",
-  "duration_ms": 1234,
-  "retry_count": 2
-}
+```
+time=2024-01-15T10:30:45.123Z level=ERROR msg="job execution failed" job_id=abc123 command=github.commits error="AUTH_EXPIRED: refresh token expired" duration_ms=1234 retry_count=2
+```
+
+#### Example Usage
+
+```go
+import "log/slog"
+
+// Basic logging
+slog.Info("job started", "job_id", job.ID, "command", job.Command)
+
+// With contextual logger
+logger := slog.With("job_id", job.ID)
+logger.Error("job failed", "error", err, "retry_count", retries)
 ```
 
 #### Log Levels

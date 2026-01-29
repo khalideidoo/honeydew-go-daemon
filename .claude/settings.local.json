@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(chmod:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(tree:*)",
+      "Bash(git -C /Users/khalid/Development/honeydew-go-daemon log --oneline -10)",
+      "Bash(git -C /Users/khalid/Development/honeydew-go-daemon status)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

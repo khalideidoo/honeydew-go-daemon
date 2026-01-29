@@ -89,6 +89,9 @@ api/proto/           # Protobuf definitions
 graphql/             # GraphQL schema and genqlient config
 migrations/          # SQLite migrations
 scripts/             # Shell scripts for CLI simulation and testing
+  daemon/            # Daemon control (ping, status, shutdown)
+  jobs/              # Job management (submit, get, list, cancel)
+  schedules/         # Scheduling (create, list, delete)
 docs/                # Architecture and design documentation
   PLAN.md            # Detailed architecture plan
 ```
@@ -116,8 +119,8 @@ make build
 go run ./cmd/daemon
 
 # Run CLI simulation scripts (requires grpcurl)
-./scripts/ping.sh
-./scripts/submit-job.sh "command" '{"payload": "data"}'
+./scripts/daemon/ping.sh
+./scripts/jobs/submit.sh "command" '{"payload": "data"}'
 ```
 
 ## Development Approach: TDD
@@ -172,6 +175,8 @@ go tool cover -html=coverage.out
 - **PID file:** `~/.honeydew/daemon.pid`
 - **Database:** `~/.honeydew/daemon.db`
 - **Config:** `~/.honeydew/config.yaml`
+- **Log file:** `~/.honeydew/daemon.log`
+- **Output dir:** `~/.honeydew/output` (default)
 
 ## Testing
 
@@ -219,18 +224,30 @@ Shell scripts in `scripts/` simulate CLI interactions with the daemon for manual
 
 **Location:** `scripts/`
 
+#### Daemon Control (`scripts/daemon/`)
+
 | Script | Purpose |
 |--------|---------|
-| `scripts/ping.sh` | Check if daemon is running |
-| `scripts/status.sh` | Get daemon status |
-| `scripts/submit-job.sh` | Submit a job to the queue |
-| `scripts/get-job.sh` | Get status of a specific job |
-| `scripts/list-jobs.sh` | List all jobs and their status |
-| `scripts/cancel-job.sh` | Cancel a pending/running job |
-| `scripts/schedule-job.sh` | Create a scheduled job |
-| `scripts/list-schedules.sh` | List all scheduled jobs |
-| `scripts/unschedule-job.sh` | Remove a scheduled job |
-| `scripts/shutdown.sh` | Gracefully shutdown daemon |
+| `ping.sh` | Check if daemon is running |
+| `status.sh` | Get daemon status |
+| `shutdown.sh` | Gracefully shutdown daemon |
+
+#### Job Management (`scripts/jobs/`)
+
+| Script | Purpose |
+|--------|---------|
+| `submit.sh` | Submit a job to the queue |
+| `get.sh` | Get status of a specific job |
+| `list.sh` | List all jobs and their status |
+| `cancel.sh` | Cancel a pending/running job |
+
+#### Scheduling (`scripts/schedules/`)
+
+| Script | Purpose |
+|--------|---------|
+| `create.sh` | Create a scheduled job |
+| `list.sh` | List all scheduled jobs |
+| `delete.sh` | Remove a scheduled job |
 
 **Usage:**
 
@@ -239,19 +256,19 @@ Shell scripts in `scripts/` simulate CLI interactions with the daemon for manual
 go run ./cmd/daemon &
 
 # Test daemon is running
-./scripts/ping.sh
+./scripts/daemon/ping.sh
 
 # Submit a test job
-./scripts/submit-job.sh "test-command" '{"key": "value"}'
+./scripts/jobs/submit.sh "test-command" '{"key": "value"}'
 
 # List all jobs
-./scripts/list-jobs.sh
+./scripts/jobs/list.sh
 
 # Check daemon status
-./scripts/status.sh
+./scripts/daemon/status.sh
 
 # Shutdown daemon
-./scripts/shutdown.sh
+./scripts/daemon/shutdown.sh
 ```
 
 **Script requirements:**
@@ -259,7 +276,7 @@ go run ./cmd/daemon &
 - Install: `brew install grpcurl` (macOS) or `go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest`
 - Scripts read socket path from `HONEYDEW_SOCKET` env var or default to `~/.honeydew/daemon.sock`
 
-**Example script template (`scripts/ping.sh`):**
+**Example script template (`scripts/daemon/ping.sh`):**
 
 ```bash
 #!/bin/bash

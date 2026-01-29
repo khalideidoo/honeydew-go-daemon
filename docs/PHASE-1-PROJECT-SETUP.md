@@ -42,6 +42,9 @@ This phase establishes the foundational project structure, including Go module i
 - [ ] Create `graphql/` directory for GraphQL schema and genqlient config
 - [ ] Create `migrations/` directory for SQLite migrations
 - [ ] Create `scripts/` directory for CLI simulation scripts
+  - [ ] `scripts/daemon/` - Daemon control (ping, status, shutdown)
+  - [ ] `scripts/jobs/` - Job management (submit, get, list, cancel)
+  - [ ] `scripts/schedules/` - Scheduling (create, list, delete)
 
 ### 3. Protobuf Definitions
 
@@ -156,6 +159,20 @@ honeydew-go-daemon/
 │   └── genqlient.yaml           # genqlient configuration
 ├── migrations/
 │   └── 001_initial.sql          # SQLite schema migrations
+├── scripts/
+│   ├── daemon/                  # Daemon control scripts
+│   │   ├── ping.sh
+│   │   ├── status.sh
+│   │   └── shutdown.sh
+│   ├── jobs/                    # Job management scripts
+│   │   ├── submit.sh
+│   │   ├── get.sh
+│   │   ├── list.sh
+│   │   └── cancel.sh
+│   └── schedules/               # Scheduling scripts
+│       ├── create.sh
+│       ├── list.sh
+│       └── delete.sh
 ├── go.mod
 ├── go.sum
 └── Makefile
@@ -169,6 +186,7 @@ honeydew-go-daemon/
 daemon:
   socket_path: ~/.honeydew/daemon.sock
   pid_file: ~/.honeydew/daemon.pid
+  output_dir: ~/.honeydew/output        # default output directory for commands
 
 storage:
   database_path: ~/.honeydew/daemon.db

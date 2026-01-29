@@ -78,6 +78,7 @@ Setup       & Crypto    Server      API Client  & Workers   Lifecycle
 | Database | `~/.honeydew/daemon.db` |
 | Config | `~/.honeydew/config.yaml` |
 | Log file | `~/.honeydew/daemon.log` |
+| Output dir | `~/.honeydew/output` |
 
 ### Build Commands
 
